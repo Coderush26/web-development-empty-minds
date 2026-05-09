@@ -17,14 +17,13 @@ export function ShipDetailsPopover({ ship, onClose }: ShipDetailsPopoverProps) {
     return 'bg-green-500/20 border-green-500 text-green-400';
   };
 
-  const lastSeenMinutes = Math.floor((Date.now() - ship.lastSeen.getTime()) / 60000);
 
   return (
     <div className="absolute bottom-6 left-6 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 z-40">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-lg font-bold text-white">{ship.name}</h3>
-          <p className="text-sm text-slate-400">{ship.type.toUpperCase()}</p>
+          <p className="text-sm text-slate-400">{ship.cargo.toUpperCase()}</p>
         </div>
         <button
           onClick={onClose}
@@ -41,7 +40,7 @@ export function ShipDetailsPopover({ ship, onClose }: ShipDetailsPopoverProps) {
       <div className="space-y-3 text-sm">
         <div className="flex justify-between">
           <span className="text-slate-400">Position:</span>
-          <span className="text-white font-mono">{ship.lat.toFixed(4)}°, {ship.lng.toFixed(4)}°</span>
+          <span className="text-white font-mono">{ship.position[0].toFixed(4)}°, {ship.position[1].toFixed(4)}°</span>
         </div>
 
         <div className="flex justify-between">
@@ -60,8 +59,8 @@ export function ShipDetailsPopover({ ship, onClose }: ShipDetailsPopoverProps) {
         </div>
 
         <div className="flex justify-between">
-          <span className="text-slate-400">Last Seen:</span>
-          <span className="text-white">{lastSeenMinutes} min ago</span>
+          <span className="text-slate-400">Fuel:</span>
+          <span className="text-white">{ship.fuel} tons</span>
         </div>
 
         <div className="pt-4 border-t border-slate-700">

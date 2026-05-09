@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, useMap, Polygon } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Ship } from '@/lib/mock-data';
+import fleetData from '@/lib/fleet.json';
 
 interface CrisisMapProps {
   ships: Ship[];
-  onShipClick: (ship: Ship) => void;
-  selectedShip: Ship | null;
+  onShipClick: (ship: any) => void;
+  selectedShip: any;
 }
 
 // Custom component to initialize Leaflet-Draw
@@ -56,42 +57,61 @@ function DrawControl() {
   return null;
 }
 
-function ShipMarker({ ship, onShipClick, isSelected }: { ship: Ship; onShipClick: (ship: Ship) => void; isSelected: boolean }) {
+function ShipMarker({ ship, onShipClick, isSelected }: { ship: any; onShipClick: (ship: any) => void; isSelected: boolean }) {
   const getColor = (status: string) => {
-    if (status === 'critical') return '#ef4444';
-    if (status === 'warning') return '#f97316';
-    return '#22c55e';
+    if (status === 'normal') return '#10b981';
+    return '#ef4444';
   };
 
   const markerSize = isSelected ? 12 : 8;
+  const iconHtml = `<div style="
+    width: 100%;
+    height: 100%;
+    background-color: ${getColor(ship.status)};
+    border: ${isSelected ? 3 : 2}px solid #ffffff;
+    border-radius: 50%;
+    opacity: 0.9;
+  "></div>`;
+
+  const icon = L.divIcon({
+    html: iconHtml,
+    className: 'transition-transform duration-1000 ease-linear',
+    iconSize: [markerSize * 2, markerSize * 2],
+    iconAnchor: [markerSize, markerSize],
+  });
 
   return (
-    <CircleMarker
-      center={[ship.lat, ship.lng]}
-      radius={markerSize}
-      fill={true}
-      fillColor={getColor(ship.status)}
-      fillOpacity={0.9}
-      color="#ffffff"
-      weight={isSelected ? 3 : 2}
+    <Marker
+      position={ship.position}
+      icon={icon}
       eventHandlers={{
         click: () => onShipClick(ship),
       }}
     >
       <Popup className="dark-popup">
-        <div className="text-sm font-semibold">{ship.name}</div>
-        <div className="text-xs text-gray-600">Type: {ship.type}</div>
-        <div className="text-xs text-gray-600">Speed: {ship.speed} knots</div>
+        <div className="flex flex-col gap-1 text-sm text-slate-800">
+          <div className="font-bold text-base mb-1">{ship.name}</div>
+          <div><span className="font-semibold text-gray-500">ID:</span> {ship.shipId}</div>
+          <div><span className="font-semibold text-gray-500">Status:</span> {ship.status}</div>
+          <div><span className="font-semibold text-gray-500">Destination:</span> {ship.destination}</div>
+          <div><span className="font-semibold text-gray-500">Speed:</span> {ship.speed} knots</div>
+          <div><span className="font-semibold text-gray-500">Fuel:</span> {ship.fuel} tons</div>
+          <div><span className="font-semibold text-gray-500">Cargo:</span> {ship.cargo}</div>
+        </div>
       </Popup>
-    </CircleMarker>
+    </Marker>
   );
 }
 
 export function CrisisMap({ ships, onShipClick, selectedShip }: CrisisMapProps) {
+  const { north, south, east, west } = fleetData.boundingBox;
+  const centerLat = (north + south) / 2;
+  const centerLng = (east + west) / 2;
+
   return (
     <div className="relative w-full h-full">
       <MapContainer
-        center={[40.0, 15.0]}
+        center={[centerLat, centerLng]}
         zoom={6}
         className="w-full h-full dark"
         style={{ filter: 'invert(0.93) hue-rotate(200deg)' }}
@@ -101,12 +121,36 @@ export function CrisisMap({ ships, onShipClick, selectedShip }: CrisisMapProps) 
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <DrawControl />
+        
+        {/* Play Area */}
+        <Polygon 
+          positions={fleetData.navigableWater as [number, number][]} 
+          pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.2, color: '#3b82f6', weight: 1 }} 
+        />
+
+        {/* Ports */}
+        {fleetData.ports.map((port) => (
+          <CircleMarker
+            key={port.id}
+            center={port.position as [number, number]}
+            radius={5}
+            pathOptions={{ fillColor: '#9ca3af', fillOpacity: 0.8, color: '#4b5563', weight: 2 }}
+          >
+            <Popup className="dark-popup">
+              <div className="text-sm font-semibold text-slate-800">{port.name}</div>
+              <div className="text-xs text-gray-500">ID: {port.id}</div>
+              <div className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-semibold">Port Facility</div>
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {/* Ships from props (live state) */}
         {ships.map((ship) => (
           <ShipMarker
-            key={ship.id}
+            key={ship.shipId}
             ship={ship}
             onShipClick={onShipClick}
-            isSelected={selectedShip?.id === ship.id}
+            isSelected={!!selectedShip && selectedShip.shipId === ship.shipId}
           />
         ))}
       </MapContainer>

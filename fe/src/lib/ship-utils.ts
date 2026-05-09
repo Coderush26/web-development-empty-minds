@@ -81,12 +81,12 @@ export function detectProximityWarnings(ships: Ship[]): Array<{ shipId1: string;
       const ship1 = ships[i];
       const ship2 = ships[j];
 
-      const distance = calculateDistance(ship1.lat, ship1.lng, ship2.lat, ship2.lng);
+      const distance = calculateDistance(ship1.position[0], ship1.position[1], ship2.position[0], ship2.position[1]);
 
       if (distance < PROXIMITY_THRESHOLD) {
         warnings.push({
-          shipId1: ship1.id,
-          shipId2: ship2.id,
+          shipId1: ship1.shipId,
+          shipId2: ship2.shipId,
           distance,
         });
       }
