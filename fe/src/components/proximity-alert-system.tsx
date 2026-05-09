@@ -30,8 +30,8 @@ export function ProximityAlertSystem({ ships, enabled = true }: ProximityAlertSy
       const warnings = detectProximityWarnings(ships);
 
       const newAlerts: ProximityAlert[] = warnings.map((warning) => {
-        const ship1 = ships.find((s) => s.id === warning.shipId1);
-        const ship2 = ships.find((s) => s.id === warning.shipId2);
+        const ship1 = ships.find((s) => s.shipId === warning.shipId1);
+        const ship2 = ships.find((s) => s.shipId === warning.shipId2);
 
         const alertId = `${warning.shipId1}-${warning.shipId2}`;
 

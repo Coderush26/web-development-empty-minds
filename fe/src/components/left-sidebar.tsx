@@ -38,10 +38,10 @@ export function LeftSidebar({ ships, alerts, onShipClick, selectedShip }: LeftSi
               <div className="space-y-2">
                 {criticalShips.map((ship) => (
                   <button
-                    key={ship.id}
+                    key={ship.shipId}
                     onClick={() => onShipClick(ship)}
                     className={`w-full text-left p-2 rounded border transition-colors ${
-                      selectedShip?.id === ship.id
+                      selectedShip?.shipId === ship.shipId
                         ? 'bg-red-500/20 border-red-500'
                         : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-slate-600'
                     }`}
@@ -63,10 +63,10 @@ export function LeftSidebar({ ships, alerts, onShipClick, selectedShip }: LeftSi
               <div className="space-y-2">
                 {warningShips.map((ship) => (
                   <button
-                    key={ship.id}
+                    key={ship.shipId}
                     onClick={() => onShipClick(ship)}
                     className={`w-full text-left p-2 rounded border transition-colors ${
-                      selectedShip?.id === ship.id
+                      selectedShip?.shipId === ship.shipId
                         ? 'bg-orange-500/20 border-orange-500'
                         : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-slate-600'
                     }`}
@@ -111,10 +111,10 @@ export function LeftSidebar({ ships, alerts, onShipClick, selectedShip }: LeftSi
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {ships.map((ship) => (
                 <button
-                  key={ship.id}
+                  key={ship.shipId}
                   onClick={() => onShipClick(ship)}
                   className={`w-full text-left px-2 py-1 text-xs rounded transition-colors ${
-                    selectedShip?.id === ship.id
+                    selectedShip?.shipId === ship.shipId
                       ? 'bg-blue-500/20 text-blue-300'
                       : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/30'
                   }`}

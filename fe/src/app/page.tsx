@@ -8,6 +8,7 @@ import { TopHeader } from '@/components/top-header';
 import { ShipDetailsPopover } from '@/components/ship-details-popover';
 import { AlertToasts } from '@/components/alert-toasts';
 import { DistressModal } from '@/components/distress-modal';
+import { useFleetSocket } from '@/hooks/use-fleet-socket';
 
 // Dynamically import CrisisMap to avoid SSR issues with Leaflet
 const CrisisMap = dynamic(() => import('@/components/crisis-map').then(mod => ({ default: mod.CrisisMap })), {
@@ -22,6 +23,8 @@ export default function Home() {
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [isCaptainView, setIsCaptainView] = useState(false);
   const [captainShip, setCaptainShip] = useState<ShipType | null>(mockShips[0]);
+
+  const { fleetState: liveFleetState, activeAlerts: liveAlerts, isConnected } = useFleetSocket('ws://localhost:3001/ws?role=command');
 
   // Show first critical alert on load
   useEffect(() => {
@@ -50,10 +53,22 @@ export default function Home() {
     }
   };
 
-  const activeAlerts = alerts.filter((a) => !a.read && !dismissedAlerts.has(a.id));
+  const combinedAlerts = liveAlerts.length > 0 ? liveAlerts : alerts;
+  const activeAlerts = combinedAlerts.filter((a) => !a.read && !dismissedAlerts.has(a.id));
   
+  const baseFleet = liveFleetState.length > 0 ? liveFleetState : mockShips;
+
+  // Ensure selectedShip and captainShip stay up-to-date with live websocket data
+  const currentSelectedShip = selectedShip 
+    ? baseFleet.find(s => s.shipId === selectedShip.shipId) || selectedShip 
+    : null;
+
+  const currentCaptainShip = captainShip 
+    ? baseFleet.find(s => s.shipId === captainShip.shipId) || captainShip 
+    : null;
+
   // In captain view, only show the captain's ship
-  const displayShips = isCaptainView && captainShip ? [captainShip] : mockShips;
+  const displayShips = isCaptainView && currentCaptainShip ? [currentCaptainShip] : baseFleet;
 
   return (
     <div className="w-full h-screen bg-slate-950 text-white overflow-hidden">
@@ -61,7 +76,7 @@ export default function Home() {
       <CrisisMap
         ships={displayShips}
         onShipClick={setSelectedShip}
-        selectedShip={selectedShip}
+        selectedShip={currentSelectedShip}
       />
 
       {/* Header */}
@@ -74,16 +89,16 @@ export default function Home() {
       {/* Left Sidebar - Hidden in captain view */}
       {!isCaptainView && (
         <LeftSidebar
-          ships={mockShips}
-          alerts={alerts}
+          ships={baseFleet}
+          alerts={combinedAlerts}
           onShipClick={setSelectedShip}
-          selectedShip={selectedShip}
+          selectedShip={currentSelectedShip}
         />
       )}
 
       {/* Ship Details Popover */}
       <ShipDetailsPopover
-        ship={selectedShip}
+        ship={currentSelectedShip}
         onClose={() => setSelectedShip(null)}
       />
 

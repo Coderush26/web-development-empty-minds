@@ -31,8 +31,8 @@ export function RestrictedZoneAlertSystem({ ships, enabled = true }: RestrictedZ
 
       ships.forEach((ship) => {
         restrictedZones.forEach((zone) => {
-          if (isShipInRestrictedZone(ship.lat, ship.lng, zone.coords)) {
-            const alertId = `${ship.id}-${zone.id}`;
+          if (isShipInRestrictedZone(ship.position[0], ship.position[1], zone.coords)) {
+            const alertId = `${ship.shipId}-${zone.id}`;
 
             newAlerts.push({
               id: alertId,
