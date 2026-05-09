@@ -1,10 +1,9 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { Ship } from '@/lib/mock-data';
 
 interface ShipDetailsPopoverProps {
-  ship: Ship | null;
+  ship: any;
   onClose: () => void;
 }
 
@@ -17,30 +16,35 @@ export function ShipDetailsPopover({ ship, onClose }: ShipDetailsPopoverProps) {
     return 'bg-green-500/20 border-green-500 text-green-400';
   };
 
+  const position = Array.isArray(ship.position)
+    ? ship.position
+    : ship.position?.lat !== undefined && ship.position?.lng !== undefined
+    ? [ship.position.lat, ship.position.lng]
+    : [0, 0];
+
+  const fuelPercent = Math.min(100, Math.max(0, (typeof ship.fuel === 'number' ? ship.fuel : 0) / 10000 * 100));
+  const fuelColor = fuelPercent < 30 ? 'bg-red-500' : 'bg-emerald-500';
 
   return (
-    <div className="absolute bottom-6 left-6 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 z-40">
+    <div className="absolute bottom-6 left-6 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 z-40">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-lg font-bold text-white">{ship.name}</h3>
-          <p className="text-sm text-slate-400">{ship.cargo.toUpperCase()}</p>
+          <p className="text-sm text-slate-400">{String(ship.cargo).toUpperCase()}</p>
         </div>
-        <button
-          onClick={onClose}
-          className="text-slate-400 hover:text-white transition-colors"
-        >
+        <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>
 
       <div className={`px-3 py-1 rounded border text-sm font-semibold mb-4 inline-block ${getStatusColor(ship.status)}`}>
-        {ship.status.toUpperCase()}
+        {String(ship.status).toUpperCase()}
       </div>
 
       <div className="space-y-3 text-sm">
         <div className="flex justify-between">
           <span className="text-slate-400">Position:</span>
-          <span className="text-white font-mono">{ship.position[0].toFixed(4)}°, {ship.position[1].toFixed(4)}°</span>
+          <span className="text-white font-mono">{position[0].toFixed(4)}°, {position[1].toFixed(4)}°</span>
         </div>
 
         <div className="flex justify-between">
@@ -58,15 +62,15 @@ export function ShipDetailsPopover({ ship, onClose }: ShipDetailsPopoverProps) {
           <span className="text-white">{ship.destination}</span>
         </div>
 
-        <div className="flex justify-between">
-          <span className="text-slate-400">Fuel:</span>
-          <span className="text-white">{ship.fuel} tons</span>
-        </div>
-
-        <div className="pt-4 border-t border-slate-700">
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors">
-            View Full Report
-          </button>
+        <div className="space-y-2">
+          <div className="flex justify-between text-slate-400 text-xs">
+            <span>Fuel</span>
+            <span>{fuelPercent.toFixed(0)}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div className={`h-full rounded-full ${fuelColor}`} style={{ width: `${fuelPercent}%` }} />
+          </div>
+          <div className="text-xs text-slate-500">{ship.fuel} tons</div>
         </div>
       </div>
     </div>

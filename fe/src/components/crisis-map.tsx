@@ -1,29 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup, useMap, Polygon } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, useMap, Polygon, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Ship } from '@/lib/mock-data';
 import fleetData from '@/lib/fleet.json';
 
 interface CrisisMapProps {
-  ships: Ship[];
+  ships: any[];
+  zones?: any[];
   onShipClick: (ship: any) => void;
   selectedShip: any;
+  onZoneCreated?: (polygon: any[]) => void;
+  showBoundaryPolygon: boolean;
+  showGeofences: boolean;
+  showShipPaths: boolean;
 }
 
-// Custom component to initialize Leaflet-Draw
-function DrawControl() {
+function getShipPosition(ship: any) {
+  if (Array.isArray(ship?.position)) {
+    return ship.position;
+  }
+
+  if (ship?.position?.lat !== undefined && ship?.position?.lng !== undefined) {
+    return [ship.position.lat, ship.position.lng] as [number, number];
+  }
+
+  return [0, 0] as [number, number];
+}
+
+function DrawControl({ onZoneCreated }: { onZoneCreated?: (polygon: any[]) => void }) {
   const map = useMap();
 
   useEffect(() => {
-    // Dynamically load leaflet-draw
     const loadDraw = async () => {
       try {
-        // Import leaflet-draw styles
         require('leaflet-draw/dist/leaflet.draw.css');
-        
         await import('leaflet-draw');
         const FeatureGroup = L.FeatureGroup as any;
         const drawnItems = new FeatureGroup();
@@ -46,13 +58,30 @@ function DrawControl() {
         });
 
         map.addControl(drawControl);
+
+        if (onZoneCreated) {
+          map.on((L as any).Draw.Event.CREATED, (e: any) => {
+            const layer = e.layer;
+            if (layer instanceof (L as any).Polygon || layer instanceof (L as any).Rectangle) {
+              const latlngs = layer.getLatLngs()[0];
+              const polygon = latlngs.map((ll: any) => ({ lat: ll.lat, lng: ll.lng }));
+              onZoneCreated(polygon);
+            }
+          });
+        }
       } catch (err) {
         console.warn('Leaflet Draw not available, continuing without it');
       }
     };
 
     loadDraw();
-  }, [map]);
+
+    return () => {
+      if ((L as any).Draw && (L as any).Draw.Event) {
+        map.off((L as any).Draw.Event.CREATED);
+      }
+    };
+  }, [map, onZoneCreated]);
 
   return null;
 }
@@ -60,6 +89,7 @@ function DrawControl() {
 function ShipMarker({ ship, onShipClick, isSelected }: { ship: any; onShipClick: (ship: any) => void; isSelected: boolean }) {
   const getColor = (status: string) => {
     if (status === 'normal') return '#10b981';
+    if (status === 'warning') return '#f59e0b';
     return '#ef4444';
   };
 
@@ -82,7 +112,7 @@ function ShipMarker({ ship, onShipClick, isSelected }: { ship: any; onShipClick:
 
   return (
     <Marker
-      position={ship.position}
+      position={getShipPosition(ship)}
       icon={icon}
       eventHandlers={{
         click: () => onShipClick(ship),
@@ -103,7 +133,7 @@ function ShipMarker({ ship, onShipClick, isSelected }: { ship: any; onShipClick:
   );
 }
 
-export function CrisisMap({ ships, onShipClick, selectedShip }: CrisisMapProps) {
+export function CrisisMap({ ships, zones = [], onShipClick, selectedShip, onZoneCreated, showBoundaryPolygon, showGeofences, showShipPaths }: CrisisMapProps) {
   const { north, south, east, west } = fleetData.boundingBox;
   const centerLat = (north + south) / 2;
   const centerLng = (east + west) / 2;
@@ -120,15 +150,41 @@ export function CrisisMap({ ships, onShipClick, selectedShip }: CrisisMapProps) 
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <DrawControl />
-        
-        {/* Play Area */}
-        <Polygon 
-          positions={fleetData.navigableWater as [number, number][]} 
-          pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.2, color: '#3b82f6', weight: 1 }} 
-        />
 
-        {/* Ports */}
+        {onZoneCreated && <DrawControl onZoneCreated={onZoneCreated} />}
+
+        {showBoundaryPolygon && (
+          <Polygon
+            positions={fleetData.navigableWater as [number, number][]}
+            pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.2, color: '#3b82f6', weight: 1 }}
+          />
+        )}
+
+        {showGeofences && zones.map((zone) => (
+          <Polygon
+            key={zone.id}
+            positions={zone.polygon.map((p: any) => [p.lat, p.lng])}
+            pathOptions={{ fillColor: '#ef4444', fillOpacity: 0.3, color: '#ef4444', weight: 2, dashArray: '5, 5' }}
+          >
+            <Popup className="dark-popup">
+              <div className="text-sm font-bold text-red-600 mb-1">Restricted Zone</div>
+              <div className="text-xs text-gray-800">{zone.name}</div>
+            </Popup>
+          </Polygon>
+        ))}
+
+        {showShipPaths && ships.map((ship) => {
+          const path = ship.path;
+          if (!Array.isArray(path) || path.length < 2) return null;
+          return (
+            <Polyline
+              key={`path-${ship.shipId}`}
+              positions={path.map((point: any) => [point.lat, point.lng])}
+              pathOptions={{ color: '#38bdf8', weight: 2, dashArray: '6,4', opacity: 0.85 }}
+            />
+          );
+        })}
+
         {fleetData.ports.map((port) => (
           <CircleMarker
             key={port.id}
@@ -144,7 +200,6 @@ export function CrisisMap({ ships, onShipClick, selectedShip }: CrisisMapProps) 
           </CircleMarker>
         ))}
 
-        {/* Ships from props (live state) */}
         {ships.map((ship) => (
           <ShipMarker
             key={ship.shipId}

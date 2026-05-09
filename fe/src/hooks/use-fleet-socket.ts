@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 export function useFleetSocket(url = 'ws://localhost:3001/ws?role=command') {
   const [fleetState, setFleetState] = useState<any[]>([]);
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const [zones, setZones] = useState<any[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -30,12 +31,23 @@ export function useFleetSocket(url = 'ws://localhost:3001/ws?role=command') {
           } else if (payload.alerts && Array.isArray(payload.alerts)) {
             setActiveAlerts(payload.alerts);
           }
+
+          if (payload.zones && Array.isArray(payload.zones)) {
+            setZones(payload.zones);
+          }
         } else if (data.type === 'ALERT_FIRED') {
           setActiveAlerts((prev) => {
             // Avoid duplicates
             if (prev.some(a => a.id === data.payload.id)) return prev;
             return [data.payload, ...prev];
           });
+        } else if (data.type === 'ZONE_ADDED') {
+          setZones((prev) => {
+            if (prev.some(z => z.id === data.payload.id)) return prev;
+            return [...prev, data.payload];
+          });
+        } else if (data.type === 'ZONE_REMOVED') {
+          setZones((prev) => prev.filter(z => z.id !== data.payload.zoneId));
         }
       } catch (error) {
         console.error("Failed to parse fleet data", error);
@@ -56,5 +68,5 @@ export function useFleetSocket(url = 'ws://localhost:3001/ws?role=command') {
     };
   }, [url]);
 
-  return { fleetState, activeAlerts, isConnected, socket: wsRef.current };
+  return { fleetState, activeAlerts, zones, isConnected, socket: wsRef.current };
 }

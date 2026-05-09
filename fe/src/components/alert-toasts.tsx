@@ -51,7 +51,7 @@ export function AlertToasts({ alerts, onDismiss }: AlertToastsProps) {
           {getSeverityIcon(alert.severity)}
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-sm">{alert.message}</div>
-            <div className="text-xs opacity-75 mt-1">
+            <div className="text-xs opacity-75 mt-1" suppressHydrationWarning>
               {new Date(alert.timestamp).toLocaleTimeString()}
             </div>
           </div>
