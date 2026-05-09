@@ -1,4 +1,18 @@
+import "dotenv/config";
 import type { AppConfig } from "../types/index.js";
+
+// Non-invasive startup logs: report presence of optional keys (do not print secrets)
+const groqPresent = Boolean(process.env.GROQ_API_KEY);
+const jwtPresent = Boolean(process.env.JWT_SECRET);
+try {
+  // Keep this message small and non-sensitive
+  // eslint-disable-next-line no-console
+  console.info(
+    `[startup] GROQ_API_KEY: ${groqPresent ? "present" : "missing"}; JWT_SECRET: ${jwtPresent ? "present" : "missing"}`,
+  );
+} catch {
+  // ignore logging errors at module load
+}
 
 function requireEnv(key: string, fallback?: string): string {
   const val = process.env[key] ?? fallback;
@@ -40,6 +54,7 @@ export function loadConfig(): AppConfig {
       "maritime-crisis-dev-secret-change-in-prod",
     ),
     nodeEnv: process.env.NODE_ENV ?? "development",
+    gridRes: parseFloat(process.env.GRID_RES_DEG ?? "0.15"),
   };
 }
 

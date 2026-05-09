@@ -58,13 +58,11 @@ export function requireAuth(
 ): void {
   const token = extractToken(req);
   if (!token) {
-    res
-      .status(401)
-      .json({
-        success: false,
-        error: "Authentication required",
-        timestamp: Date.now(),
-      });
+    res.status(401).json({
+      success: false,
+      error: "Authentication required",
+      timestamp: Date.now(),
+    });
     return;
   }
   try {
@@ -72,13 +70,13 @@ export function requireAuth(
     next();
   } catch (err) {
     logger.warn("Invalid token", { err: String(err) });
-    res
-      .status(401)
-      .json({
-        success: false,
-        error: "Invalid or expired token",
-        timestamp: Date.now(),
-      });
+    const body: any = {
+      success: false,
+      error: "Invalid or expired token",
+      timestamp: Date.now(),
+    };
+    if (config.nodeEnv === "development") body.debug = String(err);
+    res.status(401).json(body);
   }
 }
 

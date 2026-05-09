@@ -198,4 +198,5 @@ export interface AppConfig {
   adverseWeatherFuelPenalty: number;
   jwtSecret: string;
   nodeEnv: string;
+  gridRes: number; // degrees per grid cell
 }

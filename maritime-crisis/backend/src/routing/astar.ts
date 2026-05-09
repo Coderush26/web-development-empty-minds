@@ -5,15 +5,27 @@ import {
 } from "../utils/geo.js";
 import type { Position, RestrictedZone } from "../types/index.js";
 import { createLogger } from "../utils/logger.js";
+import { config } from "../config/index.js";
 
 const logger = createLogger("Router");
 
 // ─── Grid Configuration ───────────────────────────────────────────────────────
 // We operate in the Strait of Hormuz bounding box
 const BOUNDS = { north: 30.5, south: 22.0, east: 60.0, west: 47.5 };
-const GRID_RES = 0.15; // degrees per cell ~16km resolution
-const COLS = Math.ceil((BOUNDS.east - BOUNDS.west) / GRID_RES);
-const ROWS = Math.ceil((BOUNDS.north - BOUNDS.south) / GRID_RES);
+
+// The grid resolution is now configurable at runtime via `config.gridRes`.
+// Use helper getters so tests or process.env can change config before import.
+function getGridRes(): number {
+  return config.gridRes ?? 0.15;
+}
+
+function getCols(gridRes = getGridRes()): number {
+  return Math.ceil((BOUNDS.east - BOUNDS.west) / gridRes);
+}
+
+function getRows(gridRes = getGridRes()): number {
+  return Math.ceil((BOUNDS.north - BOUNDS.south) / gridRes);
+}
 
 // ─── Navigable Water Polygon (from fleet.json) ────────────────────────────────
 const NAVIGABLE_WATER: Position[] = [
@@ -59,16 +71,18 @@ interface Node {
 }
 
 function toGrid(pos: Position): { row: number; col: number } {
+  const gridRes = getGridRes();
   return {
-    row: Math.floor((pos.lat - BOUNDS.south) / GRID_RES),
-    col: Math.floor((pos.lng - BOUNDS.west) / GRID_RES),
+    row: Math.floor((pos.lat - BOUNDS.south) / gridRes),
+    col: Math.floor((pos.lng - BOUNDS.west) / gridRes),
   };
 }
 
 function toPosition(row: number, col: number): Position {
+  const gridRes = getGridRes();
   return {
-    lat: BOUNDS.south + row * GRID_RES + GRID_RES / 2,
-    lng: BOUNDS.west + col * GRID_RES + GRID_RES / 2,
+    lat: BOUNDS.south + row * gridRes + gridRes / 2,
+    lng: BOUNDS.west + col * gridRes + gridRes / 2,
   };
 }
 
@@ -77,7 +91,9 @@ function isNavigable(
   col: number,
   zones: RestrictedZone[],
 ): boolean {
-  if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return false;
+  const rows = getRows();
+  const cols = getCols();
+  if (row < 0 || row >= rows || col < 0 || col >= cols) return false;
   const pos = toPosition(row, col);
   if (!pointInPolygon(pos, NAVIGABLE_WATER)) return false;
   for (const zone of zones) {
@@ -121,7 +137,7 @@ function aStar(
   open.set(key(start.row, start.col), startNode);
 
   let iterations = 0;
-  const MAX_ITER = ROWS * COLS; // safety cap
+  const MAX_ITER = getRows() * getCols(); // safety cap
 
   while (open.size > 0 && iterations++ < MAX_ITER) {
     // Get node with lowest f

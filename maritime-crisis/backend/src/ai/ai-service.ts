@@ -5,7 +5,7 @@ import type { AiAnalysis, AlertSeverity } from "../types/index.js";
 const logger = createLogger("AiService");
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama3-8b-8192"; // Free tier model
+const MODEL = "llama-3.1-8b-instant"; // Stable, performant model (llama3-8b-8192 decommissioned)
 
 // ─── System prompt for distress analysis ─────────────────────────────────────
 
