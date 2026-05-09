@@ -21,6 +21,10 @@ export class AlertEngine extends EventEmitter {
   // Track geofence breaches (shipId:zoneId)
   private geofenceActive = new Set<string>();
 
+  private proximityPairKey(shipIdA: string, shipIdB: string): string {
+    return [shipIdA, shipIdB].sort().join(":");
+  }
+
   // ─── Check proximity between all ship pairs ──────────────────────────────
 
   checkProximity(ships: ShipState[]): void {
@@ -34,7 +38,7 @@ export class AlertEngine extends EventEmitter {
         const a = ships[i]!;
         const b = ships[j]!;
         const dist = distanceKm(a.position, b.position);
-        const pairKey = [a.shipId, b.shipId].sort().join(":");
+        const pairKey = this.proximityPairKey(a.shipId, b.shipId);
 
         if (dist < threshold) {
           currentClose.add(pairKey);
@@ -48,6 +52,7 @@ export class AlertEngine extends EventEmitter {
               message: `${a.name} and ${b.name} are ${dist.toFixed(2)} km apart`,
               metadata: {
                 distanceKm: dist,
+                thresholdKm: threshold,
                 shipAName: a.name,
                 shipBName: b.name,
               },
@@ -59,7 +64,24 @@ export class AlertEngine extends EventEmitter {
 
     // Remove stale proximity pairs
     for (const key of this.proximityActive) {
-      if (!currentClose.has(key)) this.proximityActive.delete(key);
+      if (!currentClose.has(key)) {
+        this.proximityActive.delete(key);
+        const [shipIdA, shipIdB] = key.split(":");
+        if (!shipIdA || !shipIdB) continue;
+        const staleAlerts = fleetStore
+          .getActiveAlerts()
+          .filter(
+            (alert) =>
+              alert.type === "PROXIMITY_WARNING" &&
+              alert.shipId &&
+              alert.shipIdB &&
+              this.proximityPairKey(alert.shipId, alert.shipIdB) === key,
+          );
+        for (const alert of staleAlerts) {
+          // Auto-resolve proximity warning when ships separate.
+          this.acknowledge(alert.id).catch(() => {});
+        }
+      }
     }
   }
 
@@ -145,6 +167,46 @@ export class AlertEngine extends EventEmitter {
   }
 
   // ─── Core alert creation ─────────────────────────────────────────────────
+  private async persistAlert(alert: Alert): Promise<void> {
+    const shipRow = alert.shipId
+      ? await prisma.ship.findUnique({
+          where: { shipId: alert.shipId },
+          select: { id: true },
+        })
+      : null;
+    const shipBRow = alert.shipIdB
+      ? await prisma.ship.findUnique({
+          where: { shipId: alert.shipIdB },
+          select: { id: true },
+        })
+      : null;
+    const zoneRow = alert.zoneId
+      ? await prisma.restrictedZone.findUnique({
+          where: { id: alert.zoneId },
+          select: { id: true },
+        })
+      : null;
+
+    await prisma.alert.create({
+      data: {
+        id: alert.id,
+        type: alert.type,
+        // Prisma relation expects DB primary ids, not external shipId codes.
+        shipId: shipRow?.id,
+        shipIdB: shipBRow?.id,
+        zoneId: zoneRow?.id,
+        severity: alert.severity,
+        message: alert.message,
+        metadata: {
+          ...alert.metadata,
+          sourceShipId: alert.shipId ?? null,
+          sourceShipIdB: alert.shipIdB ?? null,
+          sourceZoneId: alert.zoneId ?? null,
+        } as any,
+        firedAt: new Date(alert.firedAt),
+      },
+    });
+  }
 
   private fireAlert(params: {
     type: AlertType;
@@ -171,21 +233,9 @@ export class AlertEngine extends EventEmitter {
     fleetStore.setAlert(alert);
 
     // Persist to DB (non-blocking)
-    prisma.alert
-      .create({
-        data: {
-          id: alert.id,
-          type: alert.type,
-          shipId: alert.shipId,
-          shipIdB: alert.shipIdB,
-          zoneId: alert.zoneId,
-          severity: alert.severity,
-          message: alert.message,
-          metadata: alert.metadata as any,
-          firedAt: new Date(alert.firedAt),
-        },
-      })
-      .catch((err) => logger.error("Failed to persist alert", err));
+    this.persistAlert(alert).catch((err) =>
+      logger.error("Failed to persist alert", err),
+    );
 
     logger.info("Alert fired", {
       type: alert.type,

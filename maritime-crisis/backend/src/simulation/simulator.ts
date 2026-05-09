@@ -1,6 +1,10 @@
 import { EventEmitter } from "events";
 import { fleetStore } from "./fleet-store.js";
-import { computeRoute, pathNeedsReroute } from "../routing/astar.js";
+import {
+  computeRoute,
+  pathNeedsReroute,
+  snapToNavigableWater,
+} from "../routing/astar.js";
 import {
   distanceKm,
   distanceNm,
@@ -22,10 +26,14 @@ const EFFECTIVE_TICK_S = BASE_TICK_S * config.simulationSpeedMultiplier;
 const ARRIVAL_THRESHOLD_KM = 2.0; // km — ship considered "arrived"
 const LOW_FUEL_THRESHOLD = 500; // tons
 const FUEL_BURN_RATE = 2.5; // tons/hour per knot (simplified model)
+const ARRIVAL_HOLD_TICKS = 5; // ticks to wait at port before reassigning
+const BASE_FUEL_REFILL = 8000; // tons refilled at port
 
 export class ShipSimulator extends EventEmitter {
   private tickTimer: NodeJS.Timeout | null = null;
   private running = false;
+  /** Per-ship countdown (ticks remaining) before patrol reassignment */
+  private arrivalHold = new Map<string, number>();
 
   // ─── Initialise fleet from fleet.json ─────────────────────────────────────
 
@@ -49,7 +57,7 @@ export class ShipSimulator extends EventEmitter {
         lng: s.position[1] as number,
       };
       const destPort = fleetStore.getPort(s.destination);
-      const destination = destPort?.position ?? position;
+      const destination = snapToNavigableWater(destPort?.position ?? position);
 
       // Initial route computation
       const route = computeRoute(position, destination, []);
@@ -63,8 +71,10 @@ export class ShipSimulator extends EventEmitter {
         destination: s.destination,
         fuel: s.fuel,
         cargo: s.cargo,
-        status: s.status as ShipState["status"],
-        path: route.path.slice(1), // first point is current position
+        status: route.reachable
+          ? (s.status as ShipState["status"])
+          : "stranded",
+        path: route.reachable ? route.path.slice(1) : [], // first point is current position
         inAdverseWeather: false,
         distanceToDest: route.distanceKm * 0.539957, // km → nm
         fuelSufficient: true,
@@ -109,20 +119,64 @@ export class ShipSimulator extends EventEmitter {
     this.emit("tick", updatedShips);
   }
 
+  // ─── Pick a random port different from the current destination ────────────
+
+  private pickNextDestination(currentDest: string): string {
+    const ports = fleetStore.getAllPorts();
+    const candidates = ports.filter((p) => p.id !== currentDest);
+    if (candidates.length === 0) return currentDest;
+    return candidates[Math.floor(Math.random() * candidates.length)]!.id;
+  }
+
   // ─── Advance a Single Ship ────────────────────────────────────────────────
 
   private advanceShip(ship: ShipState, zones: RestrictedZone[]): ShipState {
-    // Skip stopped/arrived/stranded ships
-    if (
-      ["arrived", "stopped", "stranded", "out_of_fuel"].includes(ship.status)
-    ) {
+    // ── Handle arrived ships → patrol loop ────────────────────────────────
+    if (ship.status === "arrived") {
+      const remaining = this.arrivalHold.get(ship.shipId);
+      if (remaining === undefined) {
+        // Just arrived — start hold countdown
+        this.arrivalHold.set(ship.shipId, ARRIVAL_HOLD_TICKS);
+        return { ...ship, lastUpdated: Date.now() };
+      }
+      if (remaining > 0) {
+        this.arrivalHold.set(ship.shipId, remaining - 1);
+        return { ...ship, lastUpdated: Date.now() };
+      }
+      // Hold expired → assign new destination and resume sailing
+      this.arrivalHold.delete(ship.shipId);
+      const newDest = this.pickNextDestination(ship.destination);
+      const newPort = fleetStore.getPort(newDest);
+      if (!newPort) return { ...ship, lastUpdated: Date.now() };
+      const destPos = snapToNavigableWater(newPort.position);
+      const route = computeRoute(ship.position, destPos, zones.filter((z) => z.active));
+      const refueled = Math.min(BASE_FUEL_REFILL, ship.fuel + BASE_FUEL_REFILL * 0.5);
+      logger.info("Ship patrol reassigned", {
+        shipId: ship.shipId,
+        from: ship.destination,
+        to: newDest,
+      });
+      return {
+        ...ship,
+        destination: newDest,
+        status: route.reachable ? "normal" : "stranded",
+        path: route.reachable ? route.path.slice(1) : [],
+        fuel: refueled,
+        fuelSufficient: true,
+        distanceToDest: route.distanceKm * 0.539957,
+        lastUpdated: Date.now(),
+      };
+    }
+
+    // Skip stopped/stranded/out_of_fuel ships
+    if (["stopped", "stranded", "out_of_fuel"].includes(ship.status)) {
       return { ...ship, lastUpdated: Date.now() };
     }
 
     const destPort = fleetStore.getPort(ship.destination);
     if (!destPort) return ship;
 
-    const destPos = destPort.position;
+    const destPos = snapToNavigableWater(destPort.position);
 
     // ── Check arrival ──────────────────────────────────────────────────────
     const distToDest = distanceKm(ship.position, destPos);

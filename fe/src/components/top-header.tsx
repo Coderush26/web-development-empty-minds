@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bell, Menu, Radio, Settings } from 'lucide-react';
 
 interface TopHeaderProps {
@@ -39,6 +39,22 @@ export function TopHeader({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertFilter, setAlertFilter] = useState<'all' | 'unread' | 'critical'>('all');
+  const alertsRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (alertsOpen && alertsRef.current && !alertsRef.current.contains(e.target as Node)) {
+        setAlertsOpen(false);
+      }
+      if (settingsOpen && settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [alertsOpen, settingsOpen]);
 
   const normalizedAlerts = alerts.map((alert) => ({
     ...alert,
@@ -97,7 +113,7 @@ export function TopHeader({
           <span className="text-sm font-semibold text-red-400">{activeAlertCount} Active</span>
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={alertsRef}>
           <button
             type="button"
             onClick={() => setAlertsOpen((prev) => !prev)}
@@ -198,7 +214,7 @@ export function TopHeader({
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={settingsRef}>
           <button
             type="button"
             onClick={() => setSettingsOpen((prev) => !prev)}

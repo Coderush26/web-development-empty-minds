@@ -13,8 +13,10 @@ export function AlertToasts({ alerts, onDismiss }: AlertToastsProps) {
   const [visibleAlerts, setVisibleAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
-    // Auto-show critical and warning alerts
-    const unreadAlerts = alerts.filter((a) => !a.read && (a.severity === 'critical' || a.severity === 'warning'));
+    // Auto-show high-priority unread alerts
+    const unreadAlerts = alerts.filter(
+      (a: any) => !a.read && ['critical', 'high', 'warning'].includes(a.severity)
+    );
     setVisibleAlerts(unreadAlerts.slice(0, 3)); // Show max 3 toasts
   }, [alerts]);
 
@@ -22,8 +24,11 @@ export function AlertToasts({ alerts, onDismiss }: AlertToastsProps) {
     if (severity === 'critical') {
       return 'bg-red-500/20 border-red-500 text-red-200';
     }
-    if (severity === 'warning') {
+    if (severity === 'high' || severity === 'warning') {
       return 'bg-orange-500/20 border-orange-500 text-orange-200';
+    }
+    if (severity === 'medium') {
+      return 'bg-yellow-500/20 border-yellow-500 text-yellow-200';
     }
     return 'bg-blue-500/20 border-blue-500 text-blue-200';
   };
@@ -32,8 +37,11 @@ export function AlertToasts({ alerts, onDismiss }: AlertToastsProps) {
     if (severity === 'critical') {
       return <AlertCircle className="w-5 h-5 text-red-400" />;
     }
-    if (severity === 'warning') {
+    if (severity === 'high' || severity === 'warning') {
       return <AlertCircle className="w-5 h-5 text-orange-400" />;
+    }
+    if (severity === 'medium') {
+      return <AlertCircle className="w-5 h-5 text-yellow-400" />;
     }
     return <AlertCircle className="w-5 h-5 text-blue-400" />;
   };
@@ -52,7 +60,7 @@ export function AlertToasts({ alerts, onDismiss }: AlertToastsProps) {
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-sm">{alert.message}</div>
             <div className="text-xs opacity-75 mt-1" suppressHydrationWarning>
-              {new Date(alert.timestamp).toLocaleTimeString()}
+              {new Date((alert as any).timestamp ?? (alert as any).firedAt ?? Date.now()).toLocaleTimeString()}
             </div>
           </div>
           <button

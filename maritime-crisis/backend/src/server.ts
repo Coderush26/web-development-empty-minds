@@ -38,15 +38,16 @@ async function bootstrap(): Promise<void> {
     take: 200,
   });
   for (const row of activeDbAlerts) {
+    const metadata = row.metadata as Record<string, unknown>;
     fleetStore.setAlert({
       id: row.id,
       type: row.type as any,
-      shipId: row.shipId ?? undefined,
-      shipIdB: row.shipIdB ?? undefined,
-      zoneId: row.zoneId ?? undefined,
+      shipId: (metadata?.sourceShipId as string | undefined) ?? undefined,
+      shipIdB: (metadata?.sourceShipIdB as string | undefined) ?? undefined,
+      zoneId: (metadata?.sourceZoneId as string | undefined) ?? undefined,
       severity: row.severity as any,
       message: row.message,
-      metadata: row.metadata as Record<string, unknown>,
+      metadata,
       acknowledged: row.acknowledged,
       firedAt: row.firedAt.getTime(),
       acknowledgedAt: row.acknowledgedAt?.getTime(),
@@ -110,6 +111,14 @@ async function bootstrap(): Promise<void> {
       type: "ALERT",
       shipId: alert.shipId,
       description: alert.message,
+      timestamp: Date.now(),
+    });
+  });
+
+  alertEngine.on("alert_acknowledged", (alert) => {
+    wsManager.broadcast({
+      type: "ALERT_ACKNOWLEDGED",
+      payload: alert,
       timestamp: Date.now(),
     });
   });

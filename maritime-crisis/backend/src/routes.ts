@@ -58,7 +58,7 @@ router.get("/directives", requireAuth, getDirectives);
 router.post("/directives", requireRole("command"), issueDirective);
 router.post(
   "/directives/:directiveId/respond",
-  requireShipAccess("shipId"),
+  requireAuth,
   respondToDirective,
 );
 

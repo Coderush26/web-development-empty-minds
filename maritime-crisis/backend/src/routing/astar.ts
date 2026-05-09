@@ -29,9 +29,9 @@ function getRows(gridRes = getGridRes()): number {
 }
 
 // ─── Navigable Water Polygon (from fleet.json) ────────────────────────────────
-const NAVIGABLE_WATER: Position[] = (fleetJson.navigableWater as number[][]).map(
-  ([lat, lng]) => ({ lat, lng }),
-);
+const NAVIGABLE_WATER: Position[] = (
+  fleetJson.navigableWater as [number, number][]
+).map(([lat, lng]: [number, number]) => ({ lat, lng }));
 
 // ─── Grid Node ────────────────────────────────────────────────────────────────
 interface Node {
@@ -249,6 +249,14 @@ export interface RouteResult {
   reachable: boolean;
 }
 
+export function snapToNavigableWater(
+  pos: Position,
+  zones: RestrictedZone[] = [],
+): Position {
+  const cell = nearestNavigableGridCell(toGrid(pos), zones.filter((z) => z.active));
+  return cell ? toPosition(cell.row, cell.col) : pos;
+}
+
 /**
  * Compute a navigable path from `from` to `to`, avoiding all active restricted zones.
  * Returns simplified waypoints. If no path exists, returns reachable=false.
@@ -264,17 +272,20 @@ export function computeRoute(
   if (!startGrid || !goalGrid) {
     logger.warn("No navigable start/goal cell found", { from, to });
     return {
-      path: [from, to],
+      path: [],
       distanceKm: distanceKm(from, to),
       reachable: false,
     };
   }
 
+  const startPos = toPosition(startGrid.row, startGrid.col);
+  const goalPos = toPosition(goalGrid.row, goalGrid.col);
+
   const gridPath = aStar(startGrid, goalGrid, activeZones);
   if (!gridPath) {
     logger.warn("No path found", { from, to, zones: activeZones.length });
     return {
-      path: [from, to],
+      path: [],
       distanceKm: distanceKm(from, to),
       reachable: false,
     };
@@ -282,9 +293,9 @@ export function computeRoute(
 
   // Convert grid path → positions
   const rawPath: Position[] = [
-    from,
+    startPos,
     ...gridPath.slice(1, -1).map(({ row, col }) => toPosition(row, col)),
-    to,
+    goalPos,
   ];
 
   // Simplify

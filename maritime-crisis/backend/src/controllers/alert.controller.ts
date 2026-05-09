@@ -21,19 +21,22 @@ export function getAlerts(req: Request, res: Response): void {
       take: 200,
     })
     .then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        type: row.type,
-        shipId: row.shipId ?? undefined,
-        shipIdB: row.shipIdB ?? undefined,
-        zoneId: row.zoneId ?? undefined,
-        severity: row.severity,
-        message: row.message,
-        metadata: row.metadata as Record<string, unknown>,
-        acknowledged: row.acknowledged,
-        firedAt: row.firedAt.getTime(),
-        acknowledgedAt: row.acknowledgedAt?.getTime(),
-      })),
+      rows.map((row) => {
+        const metadata = row.metadata as Record<string, unknown>;
+        return {
+          id: row.id,
+          type: row.type,
+          shipId: (metadata?.sourceShipId as string | undefined) ?? undefined,
+          shipIdB: (metadata?.sourceShipIdB as string | undefined) ?? undefined,
+          zoneId: (metadata?.sourceZoneId as string | undefined) ?? undefined,
+          severity: row.severity,
+          message: row.message,
+          metadata,
+          acknowledged: row.acknowledged,
+          firedAt: row.firedAt.getTime(),
+          acknowledgedAt: row.acknowledgedAt?.getTime(),
+        };
+      }),
     )
     .then((alerts) => ok(res, alerts))
     .catch((_err) => {
