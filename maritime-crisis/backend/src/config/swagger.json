@@ -1,0 +1,1129 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Maritime Crisis API",
+    "description": "Real-time crisis ops, maps, and AI-driven fleet management system for the Strait of Hormuz",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Maritime Crisis Team",
+      "url": "https://maritime-crisis.vercel.app"
+    },
+    "license": {
+      "name": "ISC"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Development server"
+    },
+    {
+      "url": "https://maritime-crisis-backend.render.com/api",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Position": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "description": "Latitude (-90 to 90)"
+          },
+          "lng": {
+            "type": "number",
+            "description": "Longitude (-180 to 180)"
+          }
+        },
+        "required": ["lat", "lng"],
+        "example": {
+          "lat": 26.55,
+          "lng": 56.2
+        }
+      },
+      "ShipState": {
+        "type": "object",
+        "properties": {
+          "shipId": {
+            "type": "string",
+            "description": "Unique ship identifier",
+            "example": "MV-1"
+          },
+          "name": {
+            "type": "string",
+            "description": "Ship name",
+            "example": "Aurora"
+          },
+          "position": {
+            "$ref": "#/components/schemas/Position"
+          },
+          "speed": {
+            "type": "number",
+            "description": "Speed in knots",
+            "example": 14
+          },
+          "heading": {
+            "type": "number",
+            "description": "Heading in degrees true north (0-360)",
+            "example": 105
+          },
+          "destination": {
+            "type": "string",
+            "description": "Destination port ID",
+            "example": "MCT-1"
+          },
+          "fuel": {
+            "type": "number",
+            "description": "Fuel remaining in tons",
+            "example": 6800
+          },
+          "cargo": {
+            "type": "string",
+            "description": "Cargo type",
+            "example": "crude oil"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "rerouting",
+              "distressed",
+              "stopped",
+              "stranded",
+              "arrived",
+              "insufficient_fuel",
+              "out_of_fuel"
+            ],
+            "description": "Current operational status",
+            "example": "normal"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Position"
+            },
+            "description": "Remaining waypoints to destination"
+          },
+          "inAdverseWeather": {
+            "type": "boolean",
+            "description": "Whether ship is in bad weather (30% fuel penalty)",
+            "example": false
+          },
+          "distanceToDest": {
+            "type": "number",
+            "description": "Distance to destination in nautical miles",
+            "example": 45.5
+          },
+          "fuelSufficient": {
+            "type": "boolean",
+            "description": "Whether ship has enough fuel to reach destination",
+            "example": true
+          },
+          "lastUpdated": {
+            "type": "number",
+            "description": "Unix timestamp (milliseconds) of last update",
+            "example": 1747123483805
+          }
+        },
+        "required": [
+          "shipId",
+          "name",
+          "position",
+          "speed",
+          "heading",
+          "destination",
+          "fuel",
+          "cargo",
+          "status"
+        ]
+      },
+      "Port": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Port identifier",
+            "example": "MCT-1"
+          },
+          "name": {
+            "type": "string",
+            "description": "Port name",
+            "example": "Muscat"
+          },
+          "position": {
+            "$ref": "#/components/schemas/Position"
+          }
+        },
+        "required": ["id", "name", "position"]
+      },
+      "RestrictedZone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Zone identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Zone name",
+            "example": "Restricted Military Zone A"
+          },
+          "polygon": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Position"
+            },
+            "description": "Closed polygon coordinates defining the zone boundary"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether zone is currently active",
+            "example": true
+          },
+          "createdAt": {
+            "type": "number",
+            "description": "Unix timestamp (milliseconds) when zone was created"
+          },
+          "createdByRole": {
+            "type": "string",
+            "enum": ["command", "captain"],
+            "description": "Role that created the zone"
+          }
+        },
+        "required": ["id", "name", "polygon", "active"]
+      },
+      "Alert": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Alert identifier"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "GEOFENCE_BREACH",
+              "PROXIMITY_WARNING",
+              "DISTRESS_SIGNAL",
+              "INSUFFICIENT_FUEL",
+              "OUT_OF_FUEL",
+              "STRANDED",
+              "ARRIVED"
+            ],
+            "description": "Alert type"
+          },
+          "shipId": {
+            "type": "string",
+            "description": "Primary ship involved",
+            "example": "MV-1"
+          },
+          "shipIdB": {
+            "type": "string",
+            "description": "Secondary ship (for proximity alerts)",
+            "example": "MV-2"
+          },
+          "zoneId": {
+            "type": "string",
+            "description": "Zone involved (for geofence alerts)"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Alert severity level",
+            "example": "high"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable alert message",
+            "example": "Aurora and Borealis are 1.2 km apart"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional alert-specific metadata"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "description": "Whether alert has been acknowledged",
+            "example": false
+          },
+          "firedAt": {
+            "type": "number",
+            "description": "Unix timestamp (milliseconds) when alert fired"
+          },
+          "acknowledgedAt": {
+            "type": "number",
+            "description": "Unix timestamp (milliseconds) when alert was acknowledged"
+          }
+        },
+        "required": ["id", "type", "severity", "message"]
+      },
+      "Directive": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Directive identifier"
+          },
+          "shipId": {
+            "type": "string",
+            "description": "Target ship"
+          },
+          "issuedByRole": {
+            "type": "string",
+            "enum": ["command", "captain"],
+            "description": "Role that issued directive"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "REROUTE_PORT",
+              "DIVERT_WAYPOINT",
+              "HOLD_POSITION",
+              "RESUME"
+            ],
+            "description": "Directive type"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "portId": {
+                "type": "string",
+                "description": "Target port for reroute",
+                "example": "DOH-1"
+              },
+              "waypoint": {
+                "$ref": "#/components/schemas/Position",
+                "description": "Waypoint for divert"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "ACCEPTED", "ESCALATED", "EXPIRED"],
+            "description": "Current status of directive"
+          },
+          "captainResponse": {
+            "type": "string",
+            "enum": ["ACCEPT", "ESCALATE_DISTRESS"],
+            "description": "Captain's response"
+          },
+          "distressMessage": {
+            "type": "string",
+            "description": "Distress message if captain escalated"
+          },
+          "aiAnalysis": {
+            "type": "object",
+            "description": "AI-extracted analysis of distress message"
+          },
+          "issuedAt": {
+            "type": "number",
+            "description": "Unix timestamp (milliseconds) when directive was issued"
+          },
+          "respondedAt": {
+            "type": "number",
+            "description": "Unix timestamp (milliseconds) when captain responded"
+          }
+        },
+        "required": ["id", "shipId", "type", "status"]
+      },
+      "FleetStats": {
+        "type": "object",
+        "properties": {
+          "totalShips": {
+            "type": "integer",
+            "example": 15
+          },
+          "activeShips": {
+            "type": "integer",
+            "description": "Ships not arrived or out of fuel"
+          },
+          "shipsInDistress": {
+            "type": "integer"
+          },
+          "averageFuel": {
+            "type": "number",
+            "description": "Average fuel remaining across fleet"
+          },
+          "totalCargo": {
+            "type": "number",
+            "description": "Total cargo weight (tons)"
+          },
+          "alertCount": {
+            "type": "integer",
+            "description": "Active unacknowledged alerts"
+          },
+          "zoneCount": {
+            "type": "integer",
+            "description": "Active restricted zones"
+          }
+        }
+      },
+      "AuthToken": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string",
+            "description": "JWT token for authorization"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["command", "captain"]
+          },
+          "shipId": {
+            "type": "string",
+            "description": "Only present if role is 'captain'"
+          },
+          "expiresIn": {
+            "type": "string",
+            "example": "24h"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["command", "captain"]
+          },
+          "shipId": {
+            "type": "string",
+            "description": "Only if role is 'captain'"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token from /auth/token endpoint"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/token": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Get authentication token",
+        "description": "Obtain JWT token for API access. Query params determine role and ship scope.",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "description": "Role to authenticate as",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["command", "captain"]
+            }
+          },
+          {
+            "name": "shipId",
+            "in": "query",
+            "description": "Required when role=captain. Specifies which ship the captain commands.",
+            "schema": {
+              "type": "string",
+              "example": "MV-1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required parameters"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get current user info",
+        "description": "Returns authenticated user's role and ship scope",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User info retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - missing or invalid token"
+          }
+        }
+      }
+    },
+    "/ships": {
+      "get": {
+        "tags": ["Fleet"],
+        "summary": "List all ships",
+        "description": "Get current state of all 15 active ships in the fleet. No auth required.",
+        "responses": {
+          "200": {
+            "description": "List of all ships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShipState"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ships/{shipId}": {
+      "get": {
+        "tags": ["Fleet"],
+        "summary": "Get ship details",
+        "description": "Get detailed state for a specific ship including fuel, cargo, path, etc.",
+        "parameters": [
+          {
+            "name": "shipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "MV-1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ship details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ship not found"
+          }
+        }
+      }
+    },
+    "/ports": {
+      "get": {
+        "tags": ["Fleet"],
+        "summary": "List all ports",
+        "description": "Get coordinates and IDs for all 10 ports in the Strait of Hormuz region",
+        "responses": {
+          "200": {
+            "description": "List of ports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Port"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fleet/state": {
+      "get": {
+        "tags": ["Fleet"],
+        "summary": "Get complete fleet snapshot",
+        "description": "Get all ships, ports, and zones in single call. Useful for initial map load.",
+        "responses": {
+          "200": {
+            "description": "Complete fleet state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ships": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ShipState"
+                      }
+                    },
+                    "ports": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Port"
+                      }
+                    },
+                    "zones": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RestrictedZone"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fleet/stats": {
+      "get": {
+        "tags": ["Fleet"],
+        "summary": "Get fleet statistics",
+        "description": "Get aggregated stats: ship counts, fuel averages, alert counts, etc.",
+        "responses": {
+          "200": {
+            "description": "Fleet statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetStats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/zones": {
+      "get": {
+        "tags": ["Restricted Zones"],
+        "summary": "List all restricted zones",
+        "description": "Get all operator-drawn restricted zones currently active",
+        "responses": {
+          "200": {
+            "description": "List of restricted zones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RestrictedZone"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Restricted Zones"],
+        "summary": "Create a new restricted zone",
+        "description": "Draw a new restricted zone. Ships inside or entering will trigger alerts. Only Command role can do this.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Zone name",
+                    "example": "Military Exclusion Zone"
+                  },
+                  "polygon": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Position"
+                    },
+                    "description": "Closed polygon (first point must equal last for closure)",
+                    "example": [
+                      { "lat": 25.5, "lng": 54.0 },
+                      { "lat": 25.5, "lng": 54.5 },
+                      { "lat": 26.0, "lng": 54.5 },
+                      { "lat": 26.0, "lng": 54.0 },
+                      { "lat": 25.5, "lng": 54.0 }
+                    ]
+                  }
+                },
+                "required": ["name", "polygon"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Zone created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestrictedZone"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid polygon or missing fields"
+          },
+          "401": {
+            "description": "Unauthorized - must be Command role"
+          }
+        }
+      }
+    },
+    "/zones/{zoneId}": {
+      "delete": {
+        "tags": ["Restricted Zones"],
+        "summary": "Delete a restricted zone",
+        "description": "Deactivate a zone. Ships will no longer be prevented from entering.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "zoneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zone deleted"
+          },
+          "404": {
+            "description": "Zone not found"
+          },
+          "401": {
+            "description": "Unauthorized - must be Command role"
+          }
+        }
+      }
+    },
+    "/directives": {
+      "get": {
+        "tags": ["Directives"],
+        "summary": "List directives",
+        "description": "Get all issued directives (pending, accepted, escalated, etc.)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of directives",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Directive"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Directives"],
+        "summary": "Issue a directive to a ship",
+        "description": "Command sends a directive (reroute, hold, etc.) to a ship's captain. Only Command role.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "shipId": {
+                    "type": "string",
+                    "example": "MV-1"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "REROUTE_PORT",
+                      "DIVERT_WAYPOINT",
+                      "HOLD_POSITION",
+                      "RESUME"
+                    ],
+                    "example": "REROUTE_PORT"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "properties": {
+                      "portId": {
+                        "type": "string",
+                        "example": "DOH-1"
+                      },
+                      "waypoint": {
+                        "$ref": "#/components/schemas/Position"
+                      }
+                    }
+                  }
+                },
+                "required": ["shipId", "type", "payload"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Directive created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Directive"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - must be Command role"
+          }
+        }
+      }
+    },
+    "/directives/{directiveId}/respond": {
+      "post": {
+        "tags": ["Directives"],
+        "summary": "Respond to directive as captain",
+        "description": "Captain accepts or escalates a directive with optional distress message",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "directiveId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "response": {
+                    "type": "string",
+                    "enum": ["ACCEPT", "ESCALATE_DISTRESS"],
+                    "example": "ACCEPT"
+                  },
+                  "distressMessage": {
+                    "type": "string",
+                    "description": "Required if response is ESCALATE_DISTRESS",
+                    "example": "Engine failure detected. Hull integrity at 80%. Request immediate assistance."
+                  }
+                },
+                "required": ["response"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Directive"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid response type"
+          },
+          "401": {
+            "description": "Unauthorized - must be assigned captain"
+          }
+        }
+      }
+    },
+    "/alerts": {
+      "get": {
+        "tags": ["Alerts"],
+        "summary": "Get alerts",
+        "description": "Get all recent alerts (geofence, proximity, distress, etc.)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 100
+            },
+            "description": "Maximum number of alerts to return"
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["low", "medium", "high", "critical"]
+            },
+            "description": "Filter by severity"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of alerts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Alert"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/alerts/{alertId}/acknowledge": {
+      "post": {
+        "tags": ["Alerts"],
+        "summary": "Acknowledge an alert",
+        "description": "Mark an alert as acknowledged by Command. Only Command role.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alertId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alert"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Alert not found"
+          },
+          "401": {
+            "description": "Unauthorized - must be Command role"
+          }
+        }
+      }
+    },
+    "/playback/snapshots": {
+      "get": {
+        "tags": ["Playback"],
+        "summary": "List playback snapshots",
+        "description": "Get timeline of recorded snapshots for scrubbing. Each snapshot is ~30s apart, 1 hour retention.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of snapshot metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "capturedAt": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/playback/snapshots/{timestamp}": {
+      "get": {
+        "tags": ["Playback"],
+        "summary": "Get snapshot at timestamp",
+        "description": "Get fleet state at a specific point in time. Returns closest snapshot to requested timestamp.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "timestamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Unix timestamp in milliseconds"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot data with ships, alerts, zones, events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capturedAt": {
+                      "type": "number"
+                    },
+                    "fleetState": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ShipState"
+                      }
+                    },
+                    "activeAlerts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Alert"
+                      }
+                    },
+                    "activeZones": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RestrictedZone"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/ai/advisory": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "Get AI advisory suggestions",
+        "description": "Get proactive AI suggestions for Command (which ships to reroute, where to draw zones, etc.)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI recommendations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "type": "string"
+                          },
+                          "reasoning": {
+                            "type": "string"
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": ["low", "medium", "high"]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - must be Command role"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Ports ---
+model Port {
+  id       String  @id
+  name     String
+  position Json // {lat: number, lng: number}
+  ships    Ship[]
+}
+
+// --- Ships (core fleet entity) ---
+model Ship {
+  id                String       @id @default(cuid())
+  shipId            String       @unique
+  name              String
+  position          Json // {lat: number, lng: number}
+  speed             Float // knots
+  heading           Float // degrees true north
+  destination       String // dest port id
+  destinationPort   Port?        @relation(fields: [destination], references: [id])
+  fuel              Float // tons remaining
+  cargo             String
+  status            String // ShipStatus enum: normal|rerouting|distressed|stopped|stranded|arrived|insufficient_fuel|out_of_fuel
+  path              Json // [Position] waypoints remaining
+  inAdverseWeather  Boolean      @default(false)
+  distanceToDest    Float // nautical miles
+  fuelSufficient    Boolean      @default(true)
+  assignedCaptainId String?
+  lastUpdated       DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  directives        Directive[]
+  alerts            Alert[]      @relation("ShipAlerts")
+  alertsB           Alert[]      @relation("ShipB")
+  @@index([shipId])
+  @@index([status])
+}
+
+// --- Restricted zones ---
+model RestrictedZone {
+  id            String   @id @default(cuid())
+  name          String
+  polygonCoords Json // [Position] closed polygon
+  active        Boolean  @default(true)
+  createdByRole String // "command" | "captain"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  alerts        Alert[]
+  @@index([active])
+}
+
+// --- Directives issued by Command ---
+model Directive {
+  id                String   @id @default(cuid())
+  ship              Ship     @relation(fields: [shipId], references: [id], onDelete: Cascade)
+  shipId            String
+  issuedByRole      String // "command" | "captain"
+  type              String // DirectiveType: REROUTE_PORT|DIVERT_WAYPOINT|HOLD_POSITION|RESUME
+  payload           Json // {portId?: string, waypoint?: Position}
+  status            String // DirectiveStatus: PENDING|ACCEPTED|ESCALATED|EXPIRED
+  captainResponse   String? // "ACCEPT" | "ESCALATE_DISTRESS"
+  distressMessage   String?
+  aiAnalysis        Json? // AiAnalysis structured
+  issuedAt          DateTime @default(now())
+  respondedAt       DateTime?
+  updatedAt         DateTime @updatedAt
+  @@index([shipId])
+  @@index([status])
+}
+
+// --- Alerts ---
+model Alert {
+  id               String        @id @default(cuid())
+  type             String // AlertType: GEOFENCE_BREACH|PROXIMITY_WARNING|DISTRESS_SIGNAL|etc
+  ship             Ship?         @relation("ShipAlerts", fields: [shipId], references: [id], onDelete: SetNull)
+  shipId           String?
+  shipB            Ship?         @relation("ShipB", fields: [shipIdB], references: [id], onDelete: SetNull)
+  shipIdB          String? // for proximity warnings
+  zone             RestrictedZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  zoneId           String?
+  severity         String // AlertSeverity: low|medium|high|critical
+  message          String
+  metadata         Json
+  acknowledged     Boolean       @default(false)
+  firedAt          DateTime
+  acknowledgedAt   DateTime?
+  updatedAt        DateTime      @updatedAt
+  @@index([shipId])
+  @@index([type])
+  @@index([severity])
+}
+
+// --- Weather cache (for Open-Meteo) ---
+model WeatherCache {
+  id        String   @id @default(cuid())
+  lat       Float
+  lng       Float
+  data      Json // {windSpeed, waveHeight, etc}
+  isAdverse Boolean
+  fetchedAt DateTime
+  expiresAt DateTime
+  @@unique([lat, lng])
+  @@index([expiresAt])
+}
+
+// --- Playback snapshots ---
+model Snapshot {
+  id         String   @id @default(cuid())
+  capturedAt DateTime @default(now())
+  fleetState Json // ShipState[]
+  activeAlerts Json // Alert[]
+  activeZones  Json // RestrictedZone[]
+  events     Json? // SnapshotEvent[]
+  @@index([capturedAt])
+}
