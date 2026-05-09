@@ -44,6 +44,19 @@ export function useFleetSocket(url = DEFAULT_WS_URL) {
             if (prev.some(a => a.id === data.payload.id)) return prev;
             return [data.payload, ...prev];
           });
+        } else if (data.type === 'ALERT_ACKNOWLEDGED') {
+          setActiveAlerts((prev) =>
+            prev.map((alert) =>
+              alert.id === data.payload.id ? { ...alert, acknowledged: true, acknowledgedAt: data.payload.acknowledgedAt } : alert
+            )
+          );
+        } else if (data.type === 'ALERTS_ACKNOWLEDGED') {
+          const ids = Array.isArray(data?.payload?.ids) ? data.payload.ids : [];
+          setActiveAlerts((prev) =>
+            prev.map((alert) =>
+              ids.includes(alert.id) ? { ...alert, acknowledged: true, acknowledgedAt: Date.now() } : alert
+            )
+          );
         } else if (data.type === 'ZONE_ADDED') {
           setZones((prev) => {
             if (prev.some(z => z.id === data.payload.id)) return prev;

@@ -29,6 +29,16 @@ function getShipPosition(ship: any) {
   return [0, 0] as [number, number];
 }
 
+function normalizePoint(point: any): [number, number] | null {
+  if (Array.isArray(point) && point.length >= 2) {
+    return [Number(point[0]), Number(point[1])];
+  }
+  if (point?.lat !== undefined && point?.lng !== undefined) {
+    return [Number(point.lat), Number(point.lng)];
+  }
+  return null;
+}
+
 function DrawControl({ onZoneCreated }: { onZoneCreated?: (polygon: any[]) => void }) {
   const map = useMap();
 
@@ -137,6 +147,9 @@ export function CrisisMap({ ships, zones = [], onShipClick, selectedShip, onZone
   const { north, south, east, west } = fleetData.boundingBox;
   const centerLat = (north + south) / 2;
   const centerLng = (east + west) / 2;
+  const navigablePolygon = (fleetData.navigableWater ?? []).map((point: any) =>
+    Array.isArray(point) ? [Number(point[0]), Number(point[1])] : [Number(point.lat), Number(point.lng)],
+  ) as [number, number][];
 
   return (
     <div className="relative w-full h-full">
@@ -155,7 +168,7 @@ export function CrisisMap({ ships, zones = [], onShipClick, selectedShip, onZone
 
         {showBoundaryPolygon && (
           <Polygon
-            positions={fleetData.navigableWater as [number, number][]}
+            positions={navigablePolygon}
             pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.2, color: '#3b82f6', weight: 1 }}
           />
         )}
@@ -174,12 +187,16 @@ export function CrisisMap({ ships, zones = [], onShipClick, selectedShip, onZone
         ))}
 
         {showShipPaths && ships.map((ship) => {
-          const path = ship.path;
-          if (!Array.isArray(path) || path.length < 2) return null;
+          const currentPos = normalizePoint(ship?.position);
+          const pathPoints = Array.isArray(ship?.path)
+            ? ship.path.map((point: any) => normalizePoint(point)).filter(Boolean)
+            : [];
+          const polylinePoints = [currentPos, ...pathPoints].filter(Boolean) as [number, number][];
+          if (polylinePoints.length < 2) return null;
           return (
             <Polyline
               key={`path-${ship.shipId}`}
-              positions={path.map((point: any) => [point.lat, point.lng])}
+              positions={polylinePoints}
               pathOptions={{ color: '#38bdf8', weight: 2, dashArray: '6,4', opacity: 0.85 }}
             />
           );
