@@ -1,6 +1,6 @@
 'use client';
 
-import { X, AlertTriangle, Radio } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 import { Alert } from '@/lib/mock-data';
 
 interface DistressModalProps {
@@ -38,10 +38,7 @@ export function DistressModal({ alert, onClose, onAcknowledge }: DistressModalPr
           {/* Header */}
           <div className="flex items-start justify-between p-6 border-b border-slate-700">
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <Radio className={`w-6 h-6 ${getSeverityColor(alert.severity)} animate-spin`} />
-                <AlertTriangle className={`w-6 h-6 ${getSeverityColor(alert.severity)} absolute inset-0 animate-pulse`} />
-              </div>
+              <AlertTriangle className={`w-6 h-6 ${getSeverityColor(alert.severity)} animate-pulse`} />
               <div>
                 <h2 className="text-lg font-bold text-white">Alert</h2>
                 <p className={`text-xs ${getSeverityColor(alert.severity)}`}>{alert.severity.toUpperCase()}</p>

@@ -23,12 +23,12 @@ function DrawControl() {
         // Import leaflet-draw styles
         require('leaflet-draw/dist/leaflet.draw.css');
         
-        const LeafletDraw = await import('leaflet-draw');
+        await import('leaflet-draw');
         const FeatureGroup = L.FeatureGroup as any;
         const drawnItems = new FeatureGroup();
         map.addLayer(drawnItems);
 
-        const DrawControl = LeafletDraw.Control.Draw as any;
+        const DrawControl = (L as any).Control.Draw;
         const drawControl = new DrawControl({
           draw: {
             polygon: true,
