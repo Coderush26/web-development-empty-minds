@@ -6,6 +6,7 @@ import {
 import type { Position, RestrictedZone } from "../types/index.js";
 import { createLogger } from "../utils/logger.js";
 import { config } from "../config/index.js";
+import fleetJson from "../config/fleet.json" with { type: "json" };
 
 const logger = createLogger("Router");
 
@@ -28,37 +29,9 @@ function getRows(gridRes = getGridRes()): number {
 }
 
 // ─── Navigable Water Polygon (from fleet.json) ────────────────────────────────
-const NAVIGABLE_WATER: Position[] = [
-  { lat: 29.8, lng: 48.6 },
-  { lat: 29.5, lng: 50.0 },
-  { lat: 28.8, lng: 50.8 },
-  { lat: 27.8, lng: 52.0 },
-  { lat: 26.7, lng: 53.5 },
-  { lat: 26.3, lng: 55.0 },
-  { lat: 26.65, lng: 56.1 },
-  { lat: 26.5, lng: 56.4 },
-  { lat: 26.0, lng: 56.8 },
-  { lat: 25.5, lng: 57.5 },
-  { lat: 25.5, lng: 58.5 },
-  { lat: 25.0, lng: 60.0 },
-  { lat: 22.0, lng: 60.0 },
-  { lat: 22.5, lng: 60.0 },
-  { lat: 23.8, lng: 58.8 },
-  { lat: 24.5, lng: 57.2 },
-  { lat: 25.2, lng: 56.5 },
-  { lat: 26.45, lng: 56.45 },
-  { lat: 26.3, lng: 55.9 },
-  { lat: 26.0, lng: 55.5 },
-  { lat: 25.3, lng: 54.5 },
-  { lat: 24.8, lng: 53.0 },
-  { lat: 25.3, lng: 52.0 },
-  { lat: 26.4, lng: 51.5 },
-  { lat: 26.5, lng: 50.3 },
-  { lat: 27.5, lng: 49.8 },
-  { lat: 28.5, lng: 49.0 },
-  { lat: 29.5, lng: 48.3 },
-  { lat: 29.8, lng: 48.6 },
-];
+const NAVIGABLE_WATER: Position[] = (fleetJson.navigableWater as number[][]).map(
+  ([lat, lng]) => ({ lat, lng }),
+);
 
 // ─── Grid Node ────────────────────────────────────────────────────────────────
 interface Node {
@@ -98,6 +71,47 @@ function isNavigable(
   if (!pointInPolygon(pos, NAVIGABLE_WATER)) return false;
   for (const zone of zones) {
     if (zone.active && pointInPolygon(pos, zone.polygon)) return false;
+  }
+  return true;
+}
+
+function nearestNavigableGridCell(
+  source: { row: number; col: number },
+  zones: RestrictedZone[],
+): { row: number; col: number } | null {
+  if (isNavigable(source.row, source.col, zones)) return source;
+  const maxRadius = Math.max(getRows(), getCols());
+  for (let radius = 1; radius <= maxRadius; radius++) {
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        if (Math.abs(dr) !== radius && Math.abs(dc) !== radius) continue;
+        const row = source.row + dr;
+        const col = source.col + dc;
+        if (isNavigable(row, col, zones)) return { row, col };
+      }
+    }
+  }
+  return null;
+}
+
+function segmentWithinNavigableWater(a: Position, b: Position): boolean {
+  const sampleCount = Math.max(6, Math.ceil(distanceKm(a, b) / 3));
+  for (let i = 0; i <= sampleCount; i++) {
+    const t = i / sampleCount;
+    const p: Position = {
+      lat: a.lat + (b.lat - a.lat) * t,
+      lng: a.lng + (b.lng - a.lng) * t,
+    };
+    if (!pointInPolygon(p, NAVIGABLE_WATER)) return false;
+  }
+  return true;
+}
+
+function pathWithinNavigableWater(path: Position[]): boolean {
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!segmentWithinNavigableWater(path[i]!, path[i + 1]!)) {
+      return false;
+    }
   }
   return true;
 }
@@ -244,11 +258,17 @@ export function computeRoute(
   to: Position,
   zones: RestrictedZone[],
 ): RouteResult {
-  const startGrid = toGrid(from);
-  const goalGrid = toGrid(to);
-
-  // Snap to navigable if start/end are in a zone (best effort)
   const activeZones = zones.filter((z) => z.active);
+  const startGrid = nearestNavigableGridCell(toGrid(from), activeZones);
+  const goalGrid = nearestNavigableGridCell(toGrid(to), activeZones);
+  if (!startGrid || !goalGrid) {
+    logger.warn("No navigable start/goal cell found", { from, to });
+    return {
+      path: [from, to],
+      distanceKm: distanceKm(from, to),
+      reachable: false,
+    };
+  }
 
   const gridPath = aStar(startGrid, goalGrid, activeZones);
   if (!gridPath) {
@@ -269,14 +289,15 @@ export function computeRoute(
 
   // Simplify
   const simplified = simplifyPath(rawPath);
+  const finalPath = pathWithinNavigableWater(simplified) ? simplified : rawPath;
 
   // Total distance
   let totalKm = 0;
-  for (let i = 0; i < simplified.length - 1; i++) {
-    totalKm += distanceKm(simplified[i]!, simplified[i + 1]!);
+  for (let i = 0; i < finalPath.length - 1; i++) {
+    totalKm += distanceKm(finalPath[i]!, finalPath[i + 1]!);
   }
 
-  return { path: simplified, distanceKm: totalKm, reachable: true };
+  return { path: finalPath, distanceKm: totalKm, reachable: true };
 }
 
 /**

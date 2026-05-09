@@ -6,6 +6,7 @@ import { alertEngine } from "./alerts/alert-engine.js";
 import { playbackService } from "./playback/playback-service.js";
 import { updateFleetWeather } from "./weather/weather-service.js";
 import { connectDb, disconnectDb } from "./db/client.js";
+import { prisma } from "./db/client.js";
 import { config } from "./config/index.js";
 import { createLogger } from "./utils/logger.js";
 import { fleetStore } from "./simulation/fleet-store.js";
@@ -29,6 +30,28 @@ async function bootstrap(): Promise<void> {
 
   // ─── 5. Load playback history ───────────────────────────────────────────────
   await playbackService.loadFromDb();
+
+  // ─── 5b. Rehydrate active alerts from DB for websocket state ───────────────
+  const activeDbAlerts = await prisma.alert.findMany({
+    where: { acknowledged: false },
+    orderBy: { firedAt: "desc" },
+    take: 200,
+  });
+  for (const row of activeDbAlerts) {
+    fleetStore.setAlert({
+      id: row.id,
+      type: row.type as any,
+      shipId: row.shipId ?? undefined,
+      shipIdB: row.shipIdB ?? undefined,
+      zoneId: row.zoneId ?? undefined,
+      severity: row.severity as any,
+      message: row.message,
+      metadata: row.metadata as Record<string, unknown>,
+      acknowledged: row.acknowledged,
+      firedAt: row.firedAt.getTime(),
+      acknowledgedAt: row.acknowledgedAt?.getTime(),
+    });
+  }
 
   // ─── 6. Wire simulator events → alerts → WebSocket ─────────────────────────
 

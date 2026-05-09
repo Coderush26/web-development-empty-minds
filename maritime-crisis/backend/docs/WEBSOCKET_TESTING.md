@@ -92,10 +92,13 @@ Postman can connect to WebSocket endpoints directly.
 6. Watch for the first message
    - you should receive `FLEET_STATE`
 7. Send a test message:
+
    ```json
    { "type": "PING" }
    ```
+
 8. Confirm the reply:
+
    ```json
    { "type": "PONG" }
    ```

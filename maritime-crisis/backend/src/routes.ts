@@ -24,7 +24,11 @@ import {
   respondToDirective,
   getDirectives,
 } from "./controllers/directive.controller.js";
-import { getAlerts, acknowledgeAlert } from "./controllers/alert.controller.js";
+import {
+  getAlerts,
+  acknowledgeAlert,
+  acknowledgeAllAlerts,
+} from "./controllers/alert.controller.js";
 import {
   getSnapshots,
   getSnapshotAt,
@@ -65,6 +69,7 @@ router.post(
   requireRole("command"),
   acknowledgeAlert,
 );
+router.post("/alerts/acknowledge-all", requireRole("command"), acknowledgeAllAlerts);
 
 // ─── Playback ─────────────────────────────────────────────────────────────────
 router.get("/playback/snapshots", requireAuth, getSnapshots);

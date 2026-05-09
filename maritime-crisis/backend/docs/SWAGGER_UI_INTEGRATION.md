@@ -59,7 +59,7 @@ npm run dev
 
 ### 2. **Open Swagger UI**
 
-Visit: **http://localhost:3001/api-docs**
+Visit: **<http://localhost:3001/api-docs>**
 
 ### 3. **Test Any Endpoint**
 
@@ -179,12 +179,12 @@ Each workflow has step-by-step instructions with exact endpoint calls and exampl
 
 ## 🔗 Quick Links
 
-| Link                                | Purpose                      |
-| ----------------------------------- | ---------------------------- |
-| http://localhost:3001               | Welcome page                 |
-| http://localhost:3001/api-docs      | **Swagger UI** (Interactive) |
-| http://localhost:3001/api-docs.json | Raw OpenAPI spec             |
-| http://localhost:3001/health        | Health check                 |
+| Link                                  | Purpose                      |
+| ------------------------------------- | ---------------------------- |
+| <http://localhost:3001>               | Welcome page                 |
+| <http://localhost:3001/api-docs>      | **Swagger UI** (Interactive) |
+| <http://localhost:3001/api-docs.json> | Raw OpenAPI spec             |
+| <http://localhost:3001/health>        | Health check                 |
 
 ---
 
@@ -220,7 +220,7 @@ npm install --save-dev @types/swagger-ui-express
 
 ### Before Frontend Integration
 
-1. ✅ Open Swagger UI: http://localhost:3001/api-docs
+1. ✅ Open Swagger UI: <http://localhost:3001/api-docs>
 2. ✅ Test all endpoints you'll use
 3. ✅ Understand request/response formats
 4. ✅ Get familiar with authentication flow
