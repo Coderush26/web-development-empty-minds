@@ -6,20 +6,26 @@ Production-ready Express 5 + Prisma 7 backend for real-time fleet management, cr
 
 - **📖 Setup Guide**: [BACKEND_SETUP.md](./BACKEND_SETUP.md)
 - **🎯 API Testing**: [SWAGGER_TESTING.md](./SWAGGER_TESTING.md)
-- **🔄 Changes Made**: [CHANGES.md](./CHANGES.md)
+- **� WebSocket Testing**: [WEBSOCKET_TESTING.md](./WEBSOCKET_TESTING.md)
+- **🧭 Non-Swagger Testing**: [NON_SWAGGER_TESTING_GUIDE.md](./NON_SWAGGER_TESTING_GUIDE.md)
+- **🐳 Docker & Deployment**: [DOCKER_DEPLOYMENT_SUMMARY.md](./DOCKER_DEPLOYMENT_SUMMARY.md)
+- **🚀 Render Deployment**: [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md)
+- **🔗 Frontend Integration**: [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md)
 - **🧪 Swagger UI**: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
 
 ---
 
 ## 🚀 Quick Start
 
-- **🔌 WebSocket Testing**: [WEBSOCKET_TESTING.md](./WEBSOCKET_TESTING.md)
-- **🧭 Non-Swagger Testing**: [NON_SWAGGER_TESTING_GUIDE.md](./NON_SWAGGER_TESTING_GUIDE.md)
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL (Supabase)
 - `npm` or `pnpm`
 
 ### Installation
 
-```bash
+````bash
 # Install dependencies
 npm install
 
@@ -32,9 +38,11 @@ npm run dev          # Starts on http://localhost:3001
 
 # Production
 npm run build
-See [WEBSOCKET_TESTING.md](./WEBSOCKET_TESTING.md) for a full step-by-step guide and [NON_SWAGGER_TESTING_GUIDE.md](./NON_SWAGGER_TESTING_GUIDE.md) for the other manual checks that are not covered well by Swagger UI.
+```bash
+# Production
+npm run build
 npm start
-```
+````
 
 ### Environment Variables
 
@@ -46,6 +54,25 @@ JWT_SECRET="maritime-crisis-dev-secret"  # For token signing
 NODE_ENV=development
 PORT=3001
 TICK_INTERVAL_MS=1000                    # Ship simulator tick rate
+```
+
+---
+
+## 🚢 Deployment
+
+To deploy to Render or other cloud platforms:
+
+1. **Dockerfile**: Production-ready multi-stage build included
+2. **Docker Compose**: For local testing before deployment
+3. **Complete guide**: [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md)
+
+Quick start:
+
+```bash
+# Test locally with Docker
+docker-compose up
+
+# Deploy to Render: Follow RENDER_DEPLOYMENT.md
 ```
 
 ---
@@ -381,7 +408,25 @@ npm run prisma:studio  # Visual DB browser
 - `POST /api/directives/:id/respond` - Captain responds
 - `POST /api/alerts/:id/acknowledge` - Dismiss alert
 
-See frontend repo for integration examples.
+---
+
+## 🔗 Frontend Integration
+
+**TL;DR**: Frontend integration is **URL changes + WebSocket listening**.
+
+All routes stay the same. Only the domain changes:
+
+```typescript
+// Development
+const API = "http://localhost:3001/api";
+const WS = "ws://localhost:3001/ws";
+
+// Production (Render)
+const API = "https://your-service.onrender.com/api";
+const WS = "wss://your-service.onrender.com/ws";
+```
+
+For complete integration guide including authentication, state management, and real-time event handling, see [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md).
 
 ---
 
@@ -389,14 +434,15 @@ See frontend repo for integration examples.
 
 - Check [BACKEND_SETUP.md](./BACKEND_SETUP.md) for architecture details
 - See [SWAGGER_TESTING.md](./SWAGGER_TESTING.md) for API workflows
-- Review [CHANGES.md](./CHANGES.md) for recent updates
+- Review [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md) for frontend integration
+- Check [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) for cloud deployment
 - Visit Swagger UI at `http://localhost:3001/api-docs` to test endpoints
 
 ---
 
 **Status: 🟢 Production Ready**
 
-_All core systems operational. Backend fully functional and awaiting frontend integration._
+_All core systems operational. Backend fully functional, Docker-ready, and awaiting frontend integration._
 
 ---
 

@@ -1,0 +1,43 @@
+# Docker deployment for local testing before sending to Render
+
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      # Database — use PostgreSQL on your machine or connect to Supabase
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+
+      # Server config
+      PORT: 3001
+      NODE_ENV: production
+      TICK_INTERVAL_MS: 1000
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-maritime-crisis-dev-secret}
+
+      # Optional: AI
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+
+      # Frontend URL for CORS
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - maritime
+
+networks:
+  maritime:
+    driver: bridge
