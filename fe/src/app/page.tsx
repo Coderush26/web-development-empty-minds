@@ -34,7 +34,7 @@ export default function Home() {
   const [showGeofences, setShowGeofences] = useState(true);
   const [showShipPaths, setShowShipPaths] = useState(true);
 
-  const { fleetState: liveFleetState, activeAlerts: liveAlerts, zones } = useFleetSocket('ws://localhost:3001/ws?role=command');
+  const { fleetState: liveFleetState, activeAlerts: liveAlerts, zones } = useFleetSocket();
 
   const handleZoneCreated = async (polygon: any[]) => {
     try {

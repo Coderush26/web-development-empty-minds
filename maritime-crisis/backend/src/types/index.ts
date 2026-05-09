@@ -154,6 +154,7 @@ export interface SnapshotEvent {
 
 export type WsMessageType =
   | "FLEET_STATE"
+  | "TICK"
   | "SHIP_UPDATE"
   | "ALERT_FIRED"
   | "ALERT_ACKNOWLEDGED"
@@ -191,6 +192,7 @@ export interface AppConfig {
   groqApiKey: string;
   openMeteoBaseUrl: string;
   tickIntervalMs: number;
+  simulationSpeedMultiplier: number;
   weatherCacheTtlMs: number;
   snapshotIntervalMs: number;
   snapshotRetentionCount: number;

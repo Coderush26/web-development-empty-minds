@@ -33,15 +33,15 @@ async function bootstrap(): Promise<void> {
   // ─── 6. Wire simulator events → alerts → WebSocket ─────────────────────────
 
   shipSimulator.on("tick", (ships) => {
-    const zones = fleetStore.getAllZones();
+    const state = fleetStore.getFullState();
 
     // Check proximity
     alertEngine.checkProximity(ships);
 
     // Broadcast tick to all WS clients
     wsManager.broadcast({
-      type: "FLEET_STATE",
-      payload: { ships },
+      type: "TICK",
+      payload: state,
       timestamp: Date.now(),
     });
   });
@@ -76,6 +76,13 @@ async function bootstrap(): Promise<void> {
       payload: alert,
       timestamp: Date.now(),
     });
+    if (alert.type === "PROXIMITY_WARNING") {
+      wsManager.broadcast({
+        type: "PROXIMITY_WARNING",
+        payload: alert,
+        timestamp: Date.now(),
+      });
+    }
     playbackService.logEvent({
       type: "ALERT",
       shipId: alert.shipId,

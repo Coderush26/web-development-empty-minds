@@ -17,7 +17,8 @@ import fleetJson from "../config/fleet.json" with { type: "json" };
 const logger = createLogger("Simulator");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TICK_S = config.tickIntervalMs / 1000;
+const BASE_TICK_S = config.tickIntervalMs / 1000;
+const EFFECTIVE_TICK_S = BASE_TICK_S * config.simulationSpeedMultiplier;
 const ARRIVAL_THRESHOLD_KM = 2.0; // km — ship considered "arrived"
 const LOW_FUEL_THRESHOLD = 500; // tons
 const FUEL_BURN_RATE = 2.5; // tons/hour per knot (simplified model)
@@ -166,7 +167,7 @@ export class ShipSimulator extends EventEmitter {
     const weatherPenalty = ship.inAdverseWeather
       ? config.adverseWeatherFuelPenalty
       : 0;
-    const baseBurn = (FUEL_BURN_RATE * ship.speed * TICK_S) / 3600;
+    const baseBurn = (FUEL_BURN_RATE * ship.speed * EFFECTIVE_TICK_S) / 3600;
     const fuelBurned = baseBurn * (1 + weatherPenalty);
     const newFuel = Math.max(0, ship.fuel - fuelBurned);
 
@@ -187,7 +188,7 @@ export class ShipSimulator extends EventEmitter {
     const fuelSufficient = newFuel >= fuelNeeded;
 
     // ── Move toward next waypoint ─────────────────────────────────────────
-    const distanceToMoveKm = knotsSecondsToKm(ship.speed, TICK_S);
+    const distanceToMoveKm = knotsSecondsToKm(ship.speed, EFFECTIVE_TICK_S);
     const { newPosition, newPath, newHeading } = this.moveAlongPath(
       ship.position,
       ship.path,

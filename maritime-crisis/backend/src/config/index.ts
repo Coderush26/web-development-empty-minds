@@ -31,6 +31,9 @@ export function loadConfig(): AppConfig {
     groqApiKey: requireEnv("GROQ_API_KEY", ""),
     openMeteoBaseUrl: "https://api.open-meteo.com/v1/forecast",
     tickIntervalMs: parseInt(process.env.TICK_INTERVAL_MS ?? "1000", 10),
+    simulationSpeedMultiplier: parseFloat(
+      process.env.SIMULATION_SPEED_MULTIPLIER ?? "200",
+    ),
     weatherCacheTtlMs: parseInt(
       process.env.WEATHER_CACHE_TTL_MS ?? "300000",
       10,

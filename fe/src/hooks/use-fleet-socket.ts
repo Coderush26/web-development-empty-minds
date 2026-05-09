@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 
-export function useFleetSocket(url = 'ws://localhost:3001/ws?role=command') {
+const DEFAULT_WS_URL =
+  process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws?role=command';
+
+export function useFleetSocket(url = DEFAULT_WS_URL) {
   const [fleetState, setFleetState] = useState<any[]>([]);
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
   const [zones, setZones] = useState<any[]>([]);
@@ -35,7 +38,7 @@ export function useFleetSocket(url = 'ws://localhost:3001/ws?role=command') {
           if (payload.zones && Array.isArray(payload.zones)) {
             setZones(payload.zones);
           }
-        } else if (data.type === 'ALERT_FIRED') {
+        } else if (data.type === 'ALERT_FIRED' || data.type === 'PROXIMITY_WARNING') {
           setActiveAlerts((prev) => {
             // Avoid duplicates
             if (prev.some(a => a.id === data.payload.id)) return prev;
